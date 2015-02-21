@@ -1,8 +1,8 @@
 -- Startup script for EasyESP
 
 -- Check for recovery mode:
-gpio.mode(4, gpio.INPUT)
-recov = gpio.read(4)
+gpio.mode(8, gpio.INPUT)
+recov = gpio.read(8)
 if recov == 0 then
   print("Entering recovery mode.")
   dofile("recovery.lua")
