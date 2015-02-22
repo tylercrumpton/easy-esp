@@ -1,37 +1,97 @@
 srv=net.createServer(net.TCP)
+packet = 0
+bodyStartFound = false
+handled = false
+length = 0
 srv:listen(80,function(conn)
   conn:on("receive", function(conn, data)
-    -- Grab the request type:
-    i = data:find(" ", 1)
-    request = data:sub(1, i-1)
-    -- Grab the URI
-    uriStart = i+1
-    i = data:find(" ", i+1)
-    uri = data:sub(uriStart, i-1)
-    -- Grab the body length:
-    _, _, length = data:find("Content%-Length:%s(%d+)", i+1)
-    -- Grab the body content:
-    i, bodyStart = data:find("\r\n\r\n", i+1)
-    body = data:sub(bodyStart, bodyStart+length)
-    -- Print the request:
-    print("Request: "..request)
-    print("  URI: "..uri)
-    print("  Body: "..body)
-    
-    -- Handle the request:
-    if request == "POST" then
-      if uri == "/upload" then
-        _, filestart, filename = body:find("([^\r\n]+)")
-        print("Saving file to "..filename)
-        file.remove(filename)
-        file.open(filename, 'w')
-        file.write(body:sub(filestart+1))
-        file.close()
-        conn:send("File '"..filename)
+    print("Packet: "..packet)
+    if packet == 0 then
+      _, _, request, path, query = data:find("([^ ]+) ([^ ?]+)%??([^ ]*)")
+      -- Grab the body length:
+      _, _, length, rest = data:find("Content%-Length:%s(%d+)(.*)")
+      length = tonumber(length)
+      -- Print the request:
+      print("Request: "..request)
+      print("  Path: "..path)
+      if length ~= nil then
+        print("  Content-Length: "..length)
+      end
+      
+      filename=path:sub(2)
+      if request == "POST" then
+        action = "edit"
+      elseif request == "GET" then
+        if query == "do" then
+          action = "do"
+        else
+          action = "read"
+        end
+      else
+        action = "unknown"
+      end
+      print("  Action: "..action)
+    end
+    if action == "read" then
+      -- send the file back
+    elseif action == "do" then
+      print("Running file '"..filename.."'.")
+      dofile(filename)
+      conn:send("Running file '"..filename.."'.")
+    elseif action == "edit" then
+      if not bodyStartFound then
+        _, bodyStart = data:find("\r\n\r\n")
+        if bodyStart ~= nil then
+          print("Found start of body data")
+          bodyStartFound = true
+          -- Grab until length is exhausted or packet ends:
+          if data:len() > bodyStart+length then
+            bodyEnd = bodyStart+length
+            print("Grabbing the full "..length.." bytes of body data.")
+          else
+            bodyEnd = data:len()
+            print("Grabbing the rest of the packet.")
+          end
+          dataGrabbed = bodyEnd-bodyStart
+          file.open(filename, "w")
+          file.write(data:sub(bodyStart+1, bodyEnd))
+          file.close()
+          --bodyBuffer = data:sub(bodyStart+1, bodyEnd)
+          --print(bodyBuffer)
+        end
+      else
+        -- Grab until length is exhausted or packet ends:
+        if data:len() > length-dataGrabbed then
+          bodyEnd = length-dataGrabbed
+        else
+          bodyEnd = data:len()
+        end
+        if bodyEnd > 0 then
+          dataGrabbed = dataGrabbed + bodyEnd
+          file.open(filename, "a+")
+          file.write(data:sub(1, bodyEnd))
+          file.close()
+          --bodyBuffer = bodyBuffer..data:sub(1, bodyEnd)
+          --print(bodyBuffer)
+        end
+      end
+      
+      packet = packet + 1
+      print("Data grabbed: "..dataGrabbed.."/"..length)
+      
+      if (not handled) and (dataGrabbed == length) then
+        print("All data grabbed, done with request.")
+        conn:send("File '"..filename.."' saved.")
+        handled = true
       end
     end
-    
-    --conn:send("Hello!")
   end)
-  conn:on("sent",function(conn) conn:close() end)
+  conn:on("sent",function(conn) 
+    packet = 0
+    bodyStartFound = false
+    handled = false
+    length = 0
+    conn:close() 
+    
+  end)
 end)
