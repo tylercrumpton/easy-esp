@@ -33,7 +33,7 @@ srv:listen(80,function(conn)
       print("  Action: "..action)
     end
     if action == "read" then
-      -- send the file back
+      -- TODO: Send the file back
     elseif action == "do" then
       print("Running file '"..filename.."'.")
       dofile(filename)
@@ -56,8 +56,6 @@ srv:listen(80,function(conn)
           file.open(filename, "w")
           file.write(data:sub(bodyStart+1, bodyEnd))
           file.close()
-          --bodyBuffer = data:sub(bodyStart+1, bodyEnd)
-          --print(bodyBuffer)
         end
       else
         -- Grab until length is exhausted or packet ends:
@@ -70,9 +68,6 @@ srv:listen(80,function(conn)
           dataGrabbed = dataGrabbed + bodyEnd
           file.open(filename, "a+")
           file.write(data:sub(1, bodyEnd))
-          file.close()
-          --bodyBuffer = bodyBuffer..data:sub(1, bodyEnd)
-          --print(bodyBuffer)
         end
       end
       
