@@ -53,6 +53,7 @@ srv:listen(80,function(conn)
             print("Grabbing the rest of the packet.")
           end
           dataGrabbed = bodyEnd-bodyStart
+          print("Saving '"..filename.."'.");
           file.open(filename, "w")
           file.write(data:sub(bodyStart+1, bodyEnd))
           file.close()
